@@ -1,0 +1,10 @@
+*.cmd
+*.ko
+*.o
+*.mod
+*.mod.c
+*.order
+*.symvers
+
+/01_chrdevbase/chrdevbaseApp
+/02_led/ledApp

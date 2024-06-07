@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/zhumouren/study/embedded/alientek_linux/include",
+                "/home/zhumouren/study/embedded/alientek_linux/arch/arm/include",
+                "/home/zhumouren/study/embedded/alientek_linux/arch/arm/include/generated/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ]
+        }
+    ],
+    "version": 4
+}
