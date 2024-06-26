@@ -3,6 +3,7 @@
         "kernel.h": "c",
         "types.h": "c",
         "delay.h": "c",
-        "ide.h": "c"
+        "ide.h": "c",
+        "gpio.h": "c"
     }
 }
