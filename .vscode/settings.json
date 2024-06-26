@@ -4,6 +4,8 @@
         "types.h": "c",
         "delay.h": "c",
         "ide.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "stat.h": "c",
+        "string.h": "c"
     }
 }
