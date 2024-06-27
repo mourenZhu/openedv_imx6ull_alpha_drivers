@@ -10,3 +10,4 @@
 /02_led/ledApp
 /06_beep/beepApp
 /07_atomic/atomicApp
+/08_spinlock/spinlockApp
