@@ -11,3 +11,4 @@
 /06_beep/beepApp
 /07_atomic/atomicApp
 /08_spinlock/spinlockApp
+/09_semaphore/semaApp
