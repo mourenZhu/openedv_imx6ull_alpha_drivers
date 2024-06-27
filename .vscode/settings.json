@@ -6,6 +6,7 @@
         "ide.h": "c",
         "gpio.h": "c",
         "stat.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "semaphore.h": "c"
     }
 }

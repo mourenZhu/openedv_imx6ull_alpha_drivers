@@ -12,3 +12,4 @@
 /07_atomic/atomicApp
 /08_spinlock/spinlockApp
 /09_semaphore/semaApp
+/10_mutex/mutexApp
