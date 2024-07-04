@@ -15,3 +15,6 @@
 /10_mutex/mutexApp
 /11_key/keyApp
 /12_timer/timerApp
+/13_irq/imx6uirqApp
+/14_blockio/blockioApp
+/15_noblockio/noblockioApp
