@@ -15,13 +15,16 @@
 #include <linux/timer.h>
 #include <linux/of_irq.h>
 #include <linux/irq.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
+#include <linux/fcntl.h>
 #include <asm/mach/map.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
 
 #define IMX6UIRQ_CNT 1
-#define IMX6UIRQ_NAME "imx6uirq"
+#define IMX6UIRQ_NAME "asyncnoti"
 #define KEY0VALUE 0X01
 #define INVAKEY   0XFF
 #define KEY_NUM   1
@@ -48,6 +51,9 @@ struct imx6uirq_dev {
     struct timer_list timer;
     struct irq_keydesc irqkeydesc[KEY_NUM]; /*按键描述数组*/
     unsigned char curkeynum; /*当前的按键号*/
+
+    wait_queue_head_t r_wait; /* 读等待队列头 */
+    struct fasync_struct *async_queue; /*异步相关结构体*/
 };
 
 struct imx6uirq_dev imx6uirq;
@@ -71,20 +77,35 @@ void timer_function(unsigned long arg)
     struct imx6uirq_dev *dev = (struct imx6uirq_dev *)arg;
 
     num = dev->curkeynum;
-    keydesc = &dev->irqkeydesc[num];
-    value = gpio_get_value(keydesc->gpio);
-    if (value == 0) { /*按下按键*/
-        atomic_set(&dev->keyvalue, keydesc->value);
+	keydesc = &dev->irqkeydesc[num];
+
+	value = gpio_get_value(keydesc->gpio); 	/* 读取IO值 */
+	if(value == 0){ 						/* 按下按键 */
+		atomic_set(&dev->keyvalue, keydesc->value);
+	}
+	else{ 									/* 按键松开 */
+		atomic_set(&dev->keyvalue, 0x80 | keydesc->value);
+		atomic_set(&dev->releasekey, 1);	/* 标记松开按键，即完成一次完整的按键过程 */
+	}               
+
+	if(atomic_read(&dev->releasekey)) {		/* 一次完整的按键过程 */
+		if(dev->async_queue)
+			kill_fasync(&dev->async_queue, SIGIO, POLL_IN);	/* 释放SIGIO信号 */
+	}
+    
+#if 0
+    /* 唤醒进程 */
+    if (atomic_read(&dev->releasekey)) { /* 完成一次按键过程 */
+        /* wake_up(&dev->r_wait);*/
+        wake_up_interruptible(&dev->r_wait);
     }
-    else { /*松开按键*/
-        atomic_set(&dev->keyvalue, 0x80 | keydesc->value);
-        atomic_set(&dev->releasekey, 1); /*标记松开按键*/
-    }
+#endif
 }
 
 static int keyio_init(void)
 {
     unsigned char i = 0;
+    char name[10];
     int ret = 0;
 
     imx6uirq.nd = of_find_node_by_path("/key");
@@ -133,6 +154,9 @@ static int keyio_init(void)
     /*创建定时器*/
     init_timer(&imx6uirq.timer);
     imx6uirq.timer.function = timer_function;
+
+    /* 初始化等待队列头 */
+    init_waitqueue_head(&imx6uirq.r_wait);
     return 0;
 }
 
@@ -149,30 +173,76 @@ static ssize_t imx6uirq_read(struct file *filp, char __user *buf, size_t cnt, lo
     unsigned char releasekey = 0;
     struct imx6uirq_dev *dev = (struct imx6uirq_dev*) filp->private_data;
 
-    keyvalue = atomic_read(&dev->keyvalue);
-    releasekey = atomic_read(&dev->releasekey);
+    if (filp->f_flags & O_NONBLOCK) { /*非阻塞访问*/
+        if (atomic_read(&dev->releasekey) == 0) /* 没有按键按下 */
+            return -EAGAIN;
+    } else { /*阻塞访问*/
+        /* 加入等待队列，等待被唤醒，也就是有按键按下 */
+        ret = wait_event_interruptible(dev->r_wait, atomic_read(&dev->releasekey));
 
-    if (releasekey) {
-        if (keyvalue & 0x80) {
-            keyvalue &= ~0x80;
-            ret = copy_to_user(buf, &keyvalue, sizeof(keyvalue));
-        } else {
-            goto data_error;
+        if (ret) {
+            goto wait_error;
         }
-        atomic_set(&dev->releasekey, 0); /*按下标志清零*/
-    } else {
-        goto data_error;
     }
+
+    keyvalue = atomic_read(&dev->keyvalue);
+	releasekey = atomic_read(&dev->releasekey);
+
+    if (releasekey) { /* 有按键按下 */	
+		if (keyvalue & 0x80) {
+			keyvalue &= ~0x80;
+			ret = copy_to_user(buf, &keyvalue, sizeof(keyvalue));
+		} else {
+			goto data_error;
+		}
+		atomic_set(&dev->releasekey, 0);/* 按下标志清零 */
+	} else {
+		goto data_error;
+	}
+
     return 0;
+
+wait_error:
+    return ret;
 
 data_error:
     return -EINVAL;
 }
 
+unsigned int imx6uirq_poll(struct file *filp, struct poll_table_struct *wait)
+{
+    unsigned int mask = 0;
+    struct imx6uirq_dev *dev = (struct imx6uirq_dev *)filp->private_data;
+
+    poll_wait(filp, &dev->r_wait, wait);
+
+    if (atomic_read(&dev->releasekey)) { /*按键按下*/
+        mask = POLLIN | POLLRDNORM; /*返回PLLIN*/
+    }
+    return mask;
+}
+
+
+static int imx6uirq_fasync(int fd, struct file *filp, int on)
+{
+    struct imx6uirq_dev *dev = (struct imx6uirq_dev *)filp->private_data;
+    return fasync_helper(fd, filp, on, &dev->async_queue);
+}
+
+
+static int imx6uirq_release(struct inode *inode, struct file *filp)
+{
+    return imx6uirq_fasync(-1, filp, 0);
+}
+
+
 static struct file_operations imx6uirq_fops = {
     .owner = THIS_MODULE,
     .open = imx6uirq_open,
     .read = imx6uirq_read,
+    .poll = imx6uirq_poll,
+    .fasync = imx6uirq_fasync,
+    .release = imx6uirq_release,
 };
 
 static int __init imx6uirq_init(void)

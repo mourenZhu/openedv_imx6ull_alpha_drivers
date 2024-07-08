@@ -18,3 +18,4 @@
 /13_irq/imx6uirqApp
 /14_blockio/blockioApp
 /15_noblockio/noblockioApp
+/16_asyncnoti/asyncnotiApp
