@@ -8,6 +8,7 @@
         "stat.h": "c",
         "string.h": "c",
         "semaphore.h": "c",
-        "device.h": "c"
+        "device.h": "c",
+        "module.h": "c"
     }
 }
