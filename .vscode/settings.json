@@ -9,6 +9,9 @@
         "string.h": "c",
         "semaphore.h": "c",
         "device.h": "c",
-        "module.h": "c"
+        "module.h": "c",
+        "of.h": "c",
+        "atomic": "c",
+        "cstdint": "c"
     }
 }
