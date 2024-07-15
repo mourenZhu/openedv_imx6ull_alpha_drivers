@@ -12,6 +12,7 @@
         "module.h": "c",
         "of.h": "c",
         "atomic": "c",
-        "cstdint": "c"
+        "cstdint": "c",
+        "uaccess.h": "c"
     }
 }
